@@ -137,6 +137,37 @@ const updateSaison = async (saisonId) => {
   }
 }
 
+const deleteSaison = async (saison) => {
+  const confirmed = window.confirm(
+    `Voulez-vous vraiment supprimer le programme "${saison.label}" ?`
+  )
+
+  if (!confirmed) return
+
+  actionError.value = ''
+
+  try {
+    const response = await fetch(
+      `${import.meta.env.VITE_API_URL}/api/admin/saisons/${saison.id}`,
+      {
+        method: 'DELETE',
+        headers: {
+          Authorization: `Bearer ${authStore.token}`,
+        },
+      }
+    )
+
+    if (!response.ok) {
+      throw new Error('Impossible de supprimer le programme')
+    }
+
+    await getSaisons()
+  }
+  catch (error) {
+    actionError.value = error.message
+  }
+}
+
 onMounted(() => {
   getSaisons()
 })
@@ -204,6 +235,11 @@ onMounted(() => {
 
             <button type="button" class="action-button" @click.stop.prevent="startEditSaison(saison, $event)">
               Modifier
+            </button>
+
+            <button type="button" class="action-button action-button--delete"
+              @click.stop.prevent="deleteSaison(saison)">
+              Supprimer
             </button>
           </summary>
 
@@ -503,6 +539,15 @@ details[open]>.session-summary::before {
   font-weight: 700;
 
   cursor: pointer;
+}
+
+.action-button--delete {
+  background-color: #fff1f1;
+  color: #b43b3b;
+}
+
+.action-button--delete:hover {
+  background-color: #ffe2e2;
 }
 
 .action-button:hover {

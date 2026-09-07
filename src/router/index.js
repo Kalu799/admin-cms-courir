@@ -2,6 +2,9 @@ import { createRouter, createWebHistory } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import LoginPage from '@/views/LoginPage.vue'
 import DashboardPage from '@/views/DashboardPage.vue'
+import ProgrammesPage from '@/views/ProgrammesPage.vue'
+import UsersPage from '@/views/UsersPage.vue'
+import UserDetailPage from '@/views/UserDetailPage.vue'
 
 const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
@@ -19,12 +22,17 @@ const router = createRouter({
     {
       path: '/programmes',
       name: 'programmes',
-      component: () => import('@/views/ProgrammesPage.vue'),
+      component: ProgrammesPage
     },
     {
       path: '/users',
       name: 'users',
-      component: () => import('@/views/UsersPage.vue'),
+      component: UsersPage
+    },
+    {
+      path: '/users/:id',
+      name: 'user-detail',
+      component: UserDetailPage
     },
   ],
 })

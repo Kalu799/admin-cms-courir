@@ -1,9 +1,10 @@
 <script setup>
-import { useRouter } from 'vue-router'
+import { useRouter, useRoute } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 
 const authStore = useAuthStore()
 const router = useRouter()
+const route = useRoute()
 
 const logout = () => {
   authStore.logout()
@@ -13,6 +14,11 @@ const logout = () => {
 
 <template>
   <header class="app-header">
+
+    <RouterLink v-if="authStore.isAuthenticated && route.path !== '/'" to="/" class="app-header__dashboard">
+      ← Dashboard
+    </RouterLink>
+
     <h1 class="app-header__title">
       Admin — Je cours pour ma forme
     </h1>
@@ -20,6 +26,7 @@ const logout = () => {
     <button v-if="authStore.isAuthenticated" class="app-header__logout" @click="logout">
       Se déconnecter
     </button>
+
   </header>
 
   <main class="app-main">
@@ -77,6 +84,27 @@ const logout = () => {
   font-size: 1rem;
   font-weight: 800;
   text-align: center;
+}
+
+.app-header__dashboard {
+  position: absolute;
+  left: 16px;
+
+  padding: 8px 12px;
+
+  border-radius: 10px;
+
+  background-color: #f2f6ed;
+  color: #022c4d;
+
+  font-size: 0.85rem;
+  font-weight: 700;
+
+  text-decoration: none;
+}
+
+.app-header__dashboard:active {
+  transform: scale(0.97);
 }
 
 .app-main {

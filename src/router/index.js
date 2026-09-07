@@ -7,15 +7,25 @@ const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
   routes: [
     {
-  path: '/login',
-  name: 'login',
-  component: LoginPage
-},
-{
-  path: '/',
-  name: 'dashboard',
-  component: DashboardPage
-},
+      path: '/login',
+      name: 'login',
+      component: LoginPage
+    },
+    {
+      path: '/',
+      name: 'dashboard',
+      component: DashboardPage
+    },
+    {
+      path: '/programmes',
+      name: 'programmes',
+      component: () => import('@/views/ProgrammesPage.vue'),
+    },
+    {
+      path: '/users',
+      name: 'users',
+      component: () => import('@/views/UsersPage.vue'),
+    },
   ],
 })
 

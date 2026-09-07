@@ -1,9 +1,29 @@
 <script setup>
 import { ref, onMounted } from 'vue'
+import { useAuthStore } from '@/stores/auth'
+
+const authStore = useAuthStore()
 
 const saisons = ref([])
 const loading = ref(true)
 const errorMessage = ref('')
+
+const showAddSaison = ref(false)
+
+const newSaison = ref({
+  id: '',
+  label: '',
+  slug: '',
+})
+
+const actionError = ref('')
+
+const editingSaisonId = ref(null)
+
+const editSaison = ref({
+  label: '',
+  slug: '',
+})
 
 const getSaisons = async () => {
   loading.value = true
@@ -28,6 +48,95 @@ const getSaisons = async () => {
   }
 }
 
+const addSaison = async () => {
+  actionError.value = ''
+
+  try {
+    const response = await fetch(
+      `${import.meta.env.VITE_API_URL}/api/admin/saisons`,
+      {
+        method: 'POST',
+
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${authStore.token}`,
+        },
+
+        body: JSON.stringify(newSaison.value),
+      }
+    )
+
+    if (!response.ok) {
+      throw new Error('Impossible de créer le programme')
+    }
+
+    newSaison.value = {
+      id: '',
+      label: '',
+      slug: '',
+    }
+
+    showAddSaison.value = false
+
+    await getSaisons()
+  }
+  catch (error) {
+    actionError.value = error.message
+  }
+}
+
+const startEditSaison = (saison, event) => {
+  editingSaisonId.value = saison.id
+
+  editSaison.value = {
+    label: saison.label,
+    slug: saison.slug,
+  }
+
+  const details = event.currentTarget.closest('details')
+
+  if (details) {
+    details.open = true
+  }
+}
+
+const cancelEditSaison = () => {
+  editingSaisonId.value = null
+
+  editSaison.value = {
+    label: '',
+    slug: '',
+  }
+}
+
+const updateSaison = async (saisonId) => {
+  actionError.value = ''
+
+  try {
+    const response = await fetch(
+      `${import.meta.env.VITE_API_URL}/api/admin/saisons/${saisonId}`,
+      {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${authStore.token}`,
+        },
+        body: JSON.stringify(editSaison.value),
+      }
+    )
+
+    if (!response.ok) {
+      throw new Error('Impossible de modifier le programme')
+    }
+
+    cancelEditSaison()
+    await getSaisons()
+  }
+  catch (error) {
+    actionError.value = error.message
+  }
+}
+
 onMounted(() => {
   getSaisons()
 })
@@ -37,6 +146,44 @@ onMounted(() => {
   <section class="programmes-screen">
     <div class="programmes-container">
       <h1>Programmes</h1>
+
+      <button class="add-button" @click="showAddSaison = !showAddSaison">
+        + Ajouter un programme
+      </button>
+
+      <form v-if="showAddSaison" class="saison-form" @submit.prevent="addSaison">
+        <label>
+          Identifiant
+
+          <input v-model="newSaison.id" type="text" placeholder="Ex : saison3" required>
+        </label>
+
+        <label>
+          Nom du programme
+
+          <input v-model="newSaison.label" type="text" placeholder="Ex : 15 kms" required>
+        </label>
+
+        <label>
+          Slug
+
+          <input v-model="newSaison.slug" type="text" placeholder="Ex : 15-kms" required>
+        </label>
+
+        <div class="saison-form__actions">
+          <button type="submit">
+            Ajouter
+          </button>
+
+          <button type="button" class="button-secondary" @click="showAddSaison = false">
+            Annuler
+          </button>
+        </div>
+
+        <p v-if="actionError" class="action-error">
+          {{ actionError }}
+        </p>
+      </form>
 
       <p v-if="loading">
         Chargement...
@@ -54,7 +201,36 @@ onMounted(() => {
             <span class="summary-info">
               {{ saison.semaines.length }} semaines
             </span>
+
+            <button type="button" class="action-button" @click.stop.prevent="startEditSaison(saison, $event)">
+              Modifier
+            </button>
           </summary>
+
+          <form v-if="editingSaisonId === saison.id" class="saison-form saison-form--edit"
+            @submit.prevent="updateSaison(saison.id)">
+            <label>
+              Nom du programme
+
+              <input v-model="editSaison.label" type="text" required>
+            </label>
+
+            <label>
+              Slug
+
+              <input v-model="editSaison.slug" type="text" required>
+            </label>
+
+            <div class="saison-form__actions">
+              <button type="submit">
+                Enregistrer
+              </button>
+
+              <button type="button" class="button-secondary" @click="cancelEditSaison">
+                Annuler
+              </button>
+            </div>
+          </form>
 
           <div class="saison-content">
             <details v-for="semaine in saison.semaines" :key="semaine.id" class="semaine-card">
@@ -174,6 +350,108 @@ details[open]>.session-summary::before {
   font-weight: 500;
 }
 
+.add-button {
+  margin-bottom: 20px;
+  padding: 11px 16px;
+
+  border: 0;
+  border-radius: 10px;
+
+  background-color: #85bc24;
+  color: #ffffff;
+
+  font: inherit;
+  font-weight: 700;
+
+  cursor: pointer;
+}
+
+.add-button:hover {
+  opacity: 0.9;
+}
+
+.saison-form {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+
+  margin-bottom: 24px;
+  padding: 20px;
+
+  border-radius: 14px;
+
+  background-color: #ffffff;
+
+  box-shadow:
+    0 2px 8px rgb(2 44 77 / 5%),
+    0 8px 24px rgb(2 44 77 / 6%);
+}
+
+.saison-form label {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+
+  color: #022c4d;
+
+  font-size: 0.9rem;
+  font-weight: 700;
+}
+
+.saison-form input {
+  width: 100%;
+  box-sizing: border-box;
+
+  padding: 11px 12px;
+
+  border: 1px solid #d9e0e4;
+  border-radius: 8px;
+
+  background-color: #ffffff;
+  color: #022c4d;
+
+  font: inherit;
+}
+
+.saison-form input:focus {
+  border-color: #85bc24;
+  outline: none;
+}
+
+.saison-form__actions {
+  display: flex;
+  gap: 10px;
+}
+
+.saison-form__actions button {
+  padding: 10px 15px;
+
+  border: 0;
+  border-radius: 8px;
+
+  background-color: #85bc24;
+  color: #ffffff;
+
+  font: inherit;
+  font-weight: 700;
+
+  cursor: pointer;
+}
+
+.saison-form__actions .button-secondary {
+  background-color: #eef1f2;
+  color: #022c4d;
+}
+
+.action-error {
+  margin: 0;
+
+  color: #b43b3b;
+
+  font-size: 0.9rem;
+  font-weight: 600;
+}
+
 /* =========================
    SAISONS
 ========================= */
@@ -207,6 +485,32 @@ details[open]>.session-summary::before {
 
 .saison-content {
   padding: 0 18px 18px;
+}
+
+.action-button {
+  flex-shrink: 0;
+
+  padding: 7px 11px;
+
+  border: 0;
+  border-radius: 8px;
+
+  background-color: #f2f6ed;
+  color: #022c4d;
+
+  font: inherit;
+  font-size: 0.8rem;
+  font-weight: 700;
+
+  cursor: pointer;
+}
+
+.action-button:hover {
+  background-color: #e7eedf;
+}
+
+.saison-form--edit {
+  margin: 0 18px 18px;
 }
 
 /* =========================

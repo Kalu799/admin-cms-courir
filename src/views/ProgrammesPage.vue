@@ -25,6 +25,28 @@ const editSaison = ref({
   slug: '',
 })
 
+const addingWeekForSaisonId = ref(null)
+
+const newWeek = ref({
+  id: '',
+  numero: '',
+})
+
+const editingWeekId = ref(null)
+
+const editWeek = ref({
+  numero: '',
+})
+
+const addingSessionForWeekId = ref(null)
+
+const newSession = ref({
+  id: '',
+  label: '',
+  ordre: '',
+})
+
+
 const getSaisons = async () => {
   loading.value = true
   errorMessage.value = ''
@@ -168,6 +190,193 @@ const deleteSaison = async (saison) => {
   }
 }
 
+const startAddWeek = (saisonId) => {
+  addingWeekForSaisonId.value = saisonId
+
+  newWeek.value = {
+    id: '',
+    numero: '',
+  }
+}
+
+const cancelAddWeek = () => {
+  addingWeekForSaisonId.value = null
+
+  newWeek.value = {
+    id: '',
+    numero: '',
+  }
+}
+
+const addWeek = async (saisonId) => {
+  actionError.value = ''
+
+  try {
+    const response = await fetch(
+      `${import.meta.env.VITE_API_URL}/api/admin/semaines`,
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${authStore.token}`,
+        },
+        body: JSON.stringify({
+          id: newWeek.value.id,
+          saisonId,
+          numero: Number(newWeek.value.numero),
+        }),
+      }
+    )
+
+    if (!response.ok) {
+      throw new Error('Impossible de créer la semaine')
+    }
+
+    cancelAddWeek()
+    await getSaisons()
+  }
+  catch (error) {
+    actionError.value = error.message
+  }
+}
+
+const startEditWeek = (semaine, event) => {
+  editingWeekId.value = semaine.id
+
+  editWeek.value = {
+    numero: semaine.numero,
+  }
+
+  const details = event.currentTarget.closest('details')
+
+  if (details) {
+    details.open = true
+  }
+}
+
+const cancelEditWeek = () => {
+  editingWeekId.value = null
+
+  editWeek.value = {
+    numero: '',
+  }
+}
+
+const updateWeek = async (semaine, saisonId) => {
+  actionError.value = ''
+
+  try {
+    const response = await fetch(
+      `${import.meta.env.VITE_API_URL}/api/admin/semaines/${semaine.id}`,
+      {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${authStore.token}`,
+        },
+        body: JSON.stringify({
+          saisonId,
+          numero: Number(editWeek.value.numero),
+        }),
+      }
+    )
+
+    if (!response.ok) {
+      throw new Error('Impossible de modifier la semaine')
+    }
+
+    cancelEditWeek()
+    await getSaisons()
+  }
+  catch (error) {
+    actionError.value = error.message
+  }
+}
+
+const deleteWeek = async (semaine) => {
+  const confirmed = window.confirm(
+    `Voulez-vous vraiment supprimer la semaine ${semaine.numero} ?`
+  )
+
+  if (!confirmed) return
+
+  actionError.value = ''
+
+  try {
+    const response = await fetch(
+      `${import.meta.env.VITE_API_URL}/api/admin/semaines/${semaine.id}`,
+      {
+        method: 'DELETE',
+        headers: {
+          Authorization: `Bearer ${authStore.token}`,
+        },
+      }
+    )
+
+    if (!response.ok) {
+      throw new Error('Impossible de supprimer la semaine')
+    }
+
+    await getSaisons()
+  }
+  catch (error) {
+    actionError.value = error.message
+  }
+}
+
+const startAddSession = (weekId) => {
+  addingSessionForWeekId.value = weekId
+
+  newSession.value = {
+    id: '',
+    label: '',
+    ordre: '',
+  }
+}
+
+const cancelAddSession = () => {
+  addingSessionForWeekId.value = null
+
+  newSession.value = {
+    id: '',
+    label: '',
+    ordre: '',
+  }
+}
+
+const addSession = async (weekId) => {
+  actionError.value = ''
+
+  try {
+    const response = await fetch(
+      `${import.meta.env.VITE_API_URL}/api/admin/sessions`,
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${authStore.token}`,
+        },
+        body: JSON.stringify({
+          id: newSession.value.id,
+          semaineId: weekId,
+          label: newSession.value.label,
+          ordre: Number(newSession.value.ordre),
+        }),
+      }
+    )
+
+    if (!response.ok) {
+      throw new Error('Impossible de créer la session')
+    }
+
+    cancelAddSession()
+    await getSaisons()
+  }
+  catch (error) {
+    actionError.value = error.message
+  }
+}
+
 onMounted(() => {
   getSaisons()
 })
@@ -269,12 +478,110 @@ onMounted(() => {
           </form>
 
           <div class="saison-content">
+
+            <button type="button" class="add-sub-button" @click="startAddWeek(saison.id)">
+              + Ajouter une semaine
+            </button>
+
+            <form v-if="addingWeekForSaisonId === saison.id" class="saison-form week-form"
+              @submit.prevent="addWeek(saison.id)">
+              <label>
+                Identifiant
+
+                <input v-model="newWeek.id" type="text" placeholder="Ex : saison1-semaine13" required>
+              </label>
+
+              <label>
+                Numéro de semaine
+
+                <input v-model="newWeek.numero" type="number" min="1" placeholder="Ex : 13" required>
+              </label>
+
+              <div class="saison-form__actions">
+                <button type="submit">
+                  Ajouter
+                </button>
+
+                <button type="button" class="button-secondary" @click="cancelAddWeek">
+                  Annuler
+                </button>
+              </div>
+            </form>
+
             <details v-for="semaine in saison.semaines" :key="semaine.id" class="semaine-card">
               <summary class="semaine-summary">
-                Semaine {{ semaine.numero }}
+                <span>
+                  Semaine {{ semaine.numero }}
+                </span>
+
+                <div class="summary-actions">
+                  <button type="button" class="action-button" @click.stop.prevent="startEditWeek(semaine, $event)">
+                    Modifier
+                  </button>
+
+                  <button type="button" class="action-button action-button--delete"
+                    @click.stop.prevent="deleteWeek(semaine)">
+                    Supprimer
+                  </button>
+                </div>
               </summary>
 
+              <form v-if="editingWeekId === semaine.id" class="saison-form week-form week-form--edit"
+                @submit.prevent="updateWeek(semaine, saison.id)">
+                <label>
+                  Numéro de semaine
+
+                  <input v-model="editWeek.numero" type="number" min="1" required>
+                </label>
+
+                <div class="saison-form__actions">
+                  <button type="submit">
+                    Enregistrer
+                  </button>
+
+                  <button type="button" class="button-secondary" @click="cancelEditWeek">
+                    Annuler
+                  </button>
+                </div>
+              </form>
+
               <div class="semaine-content">
+
+                <button type="button" class="add-sub-button" @click="startAddSession(semaine.id)">
+                  + Ajouter une session
+                </button>
+
+                <form v-if="addingSessionForWeekId === semaine.id" class="saison-form session-form"
+                  @submit.prevent="addSession(semaine.id)">
+                  <label>
+                    Identifiant
+
+                    <input v-model="newSession.id" type="text" placeholder="Ex : saison1-semaine1-jour3" required>
+                  </label>
+
+                  <label>
+                    Nom de la session
+
+                    <input v-model="newSession.label" type="text" placeholder="Ex : Jour 3" required>
+                  </label>
+
+                  <label>
+                    Ordre
+
+                    <input v-model="newSession.ordre" type="number" min="1" placeholder="Ex : 3" required>
+                  </label>
+
+                  <div class="saison-form__actions">
+                    <button type="submit">
+                      Ajouter
+                    </button>
+
+                    <button type="button" class="button-secondary" @click="cancelAddSession">
+                      Annuler
+                    </button>
+                  </div>
+                </form>
+
                 <details v-for="session in semaine.jours" :key="session.id" class="session-card">
                   <summary class="session-summary">
                     <span>{{ session.label }}</span>
@@ -369,6 +676,13 @@ summary::-webkit-details-marker {
   font-weight: 800;
 
   transition: transform 0.2s ease;
+}
+
+.summary-actions {
+  display: flex;
+  gap: 8px;
+
+  margin-left: auto;
 }
 
 details[open]>.saison-summary::before,
@@ -562,6 +876,37 @@ details[open]>.session-summary::before {
    SEMAINES
 ========================= */
 
+.week-form--edit {
+  margin: 0 12px 12px;
+}
+
+.add-sub-button {
+  margin: 10px 0 14px;
+  padding: 9px 13px;
+
+  border: 0;
+  border-radius: 8px;
+
+  background-color: #f2f6ed;
+  color: #022c4d;
+
+  font: inherit;
+  font-size: 0.85rem;
+  font-weight: 700;
+
+  cursor: pointer;
+}
+
+.add-sub-button:hover {
+  background-color: #e7eedf;
+}
+
+.week-form {
+  margin-bottom: 16px;
+
+  background-color: #f7f8f5;
+}
+
 .semaine-card {
   margin-top: 10px;
 
@@ -592,6 +937,12 @@ details[open]>.session-summary::before {
 /* =========================
    SESSIONS / JOURS
 ========================= */
+
+.session-form {
+  margin-bottom: 12px;
+
+  background-color: #ffffff;
+}
 
 .session-card {
   margin-top: 8px;

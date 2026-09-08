@@ -46,6 +46,30 @@ const newSession = ref({
   ordre: '',
 })
 
+const editingSessionId = ref(null)
+
+const editSession = ref({
+  label: '',
+  ordre: '',
+})
+
+const exerciseTypes = [
+  { value: 'echauffement', label: 'Échauffement' },
+  { value: 'trotte', label: 'Trotte' },
+  { value: 'marche', label: 'Marche' },
+  { value: 'etirement', label: 'Étirement' },
+  { value: 'sprint', label: 'Sprint' },
+  { value: 'deboule', label: 'Déboulé' },
+  { value: 'cours', label: 'Cours' },
+]
+
+const addingExerciseForSessionId = ref(null)
+
+const newExercise = ref({
+  type: '',
+  dureeMinutes: '',
+  ordre: '',
+})
 
 const getSaisons = async () => {
   loading.value = true
@@ -377,6 +401,146 @@ const addSession = async (weekId) => {
   }
 }
 
+const startEditSession = (session, event) => {
+  editingSessionId.value = session.id
+
+  editSession.value = {
+    label: session.label,
+    ordre: session.ordre,
+  }
+
+  const details = event.currentTarget.closest('details')
+
+  if (details) {
+    details.open = true
+  }
+}
+
+const cancelEditSession = () => {
+  editingSessionId.value = null
+
+  editSession.value = {
+    label: '',
+    ordre: '',
+  }
+}
+
+const updateSession = async (session, weekId) => {
+  actionError.value = ''
+
+  try {
+    const response = await fetch(
+      `${import.meta.env.VITE_API_URL}/api/admin/sessions/${session.id}`,
+      {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${authStore.token}`,
+        },
+        body: JSON.stringify({
+          semaineId: weekId,
+          label: editSession.value.label,
+          ordre: Number(editSession.value.ordre),
+        }),
+      }
+    )
+
+    if (!response.ok) {
+      throw new Error('Impossible de modifier la session')
+    }
+
+    cancelEditSession()
+    await getSaisons()
+  }
+  catch (error) {
+    actionError.value = error.message
+  }
+}
+
+const deleteSession = async (session) => {
+  const confirmed = window.confirm(
+    `Voulez-vous vraiment supprimer la session "${session.label}" ?`
+  )
+
+  if (!confirmed) return
+
+  actionError.value = ''
+
+  try {
+    const response = await fetch(
+      `${import.meta.env.VITE_API_URL}/api/admin/sessions/${session.id}`,
+      {
+        method: 'DELETE',
+        headers: {
+          Authorization: `Bearer ${authStore.token}`,
+        },
+      }
+    )
+
+    if (!response.ok) {
+      throw new Error('Impossible de supprimer la session')
+    }
+
+    await getSaisons()
+  }
+  catch (error) {
+    actionError.value = error.message
+  }
+}
+
+const startAddExercise = (sessionId) => {
+  addingExerciseForSessionId.value = sessionId
+
+  newExercise.value = {
+    type: '',
+    dureeMinutes: '',
+    ordre: '',
+  }
+}
+
+const cancelAddExercise = () => {
+  addingExerciseForSessionId.value = null
+
+  newExercise.value = {
+    type: '',
+    dureeMinutes: '',
+    ordre: '',
+  }
+}
+
+const addExercise = async (sessionId) => {
+  actionError.value = ''
+
+  try {
+    const response = await fetch(
+      `${import.meta.env.VITE_API_URL}/api/admin/exercices`,
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${authStore.token}`,
+        },
+        body: JSON.stringify({
+          sessionId,
+          type: newExercise.value.type,
+          dureeMinutes: Number(newExercise.value.dureeMinutes),
+          ordre: Number(newExercise.value.ordre),
+        }),
+      }
+    )
+
+    if (!response.ok) {
+      throw new Error('Impossible de créer l’exercice')
+    }
+
+    cancelAddExercise()
+    await getSaisons()
+  }
+  catch (error) {
+    actionError.value = error.message
+  }
+}
+
 onMounted(() => {
   getSaisons()
 })
@@ -436,20 +600,26 @@ onMounted(() => {
       <div v-for="saison in saisons" :key="saison.id" class="saison-card">
         <details>
           <summary class="saison-summary">
-            <span>{{ saison.label }}</span>
-
-            <span class="summary-info">
-              {{ saison.semaines.length }} semaines
+            <span>
+              {{ saison.label }}
             </span>
 
-            <button type="button" class="action-button" @click.stop.prevent="startEditSaison(saison, $event)">
-              Modifier
-            </button>
+            <div class="summary-right">
+              <span class="summary-info">
+                {{ saison.semaines.length }} semaines
+              </span>
 
-            <button type="button" class="action-button action-button--delete"
-              @click.stop.prevent="deleteSaison(saison)">
-              Supprimer
-            </button>
+              <div class="summary-actions">
+                <button type="button" class="action-button" @click.stop.prevent="startEditSaison(saison, $event)">
+                  Modifier
+                </button>
+
+                <button type="button" class="action-button action-button--delete"
+                  @click.stop.prevent="deleteSaison(saison)">
+                  Supprimer
+                </button>
+              </div>
+            </div>
           </summary>
 
           <form v-if="editingSaisonId === saison.id" class="saison-form saison-form--edit"
@@ -514,15 +684,21 @@ onMounted(() => {
                   Semaine {{ semaine.numero }}
                 </span>
 
-                <div class="summary-actions">
-                  <button type="button" class="action-button" @click.stop.prevent="startEditWeek(semaine, $event)">
-                    Modifier
-                  </button>
+                <div class="summary-right">
+                  <span class="summary-info">
+                    {{ semaine.jours.length }} sessions
+                  </span>
 
-                  <button type="button" class="action-button action-button--delete"
-                    @click.stop.prevent="deleteWeek(semaine)">
-                    Supprimer
-                  </button>
+                  <div class="summary-actions">
+                    <button type="button" class="action-button" @click.stop.prevent="startEditWeek(semaine, $event)">
+                      Modifier
+                    </button>
+
+                    <button type="button" class="action-button action-button--delete"
+                      @click.stop.prevent="deleteWeek(semaine)">
+                      Supprimer
+                    </button>
+                  </div>
                 </div>
               </summary>
 
@@ -584,12 +760,97 @@ onMounted(() => {
 
                 <details v-for="session in semaine.jours" :key="session.id" class="session-card">
                   <summary class="session-summary">
-                    <span>{{ session.label }}</span>
-
-                    <span class="summary-info">
-                      {{ session.exercices.length }} exercices
+                    <span>
+                      {{ session.label }}
                     </span>
+
+                    <div class="summary-right">
+                      <span class="summary-info">
+                        {{ session.exercices.length }} exercices
+                      </span>
+
+                      <div class="summary-actions">
+                        <button type="button" class="action-button"
+                          @click.stop.prevent="startEditSession(session, $event)">
+                          Modifier
+                        </button>
+
+                        <button type="button" class="action-button action-button--delete"
+                          @click.stop.prevent="deleteSession(session)">
+                          Supprimer
+                        </button>
+                      </div>
+                    </div>
                   </summary>
+
+                  <form v-if="editingSessionId === session.id" class="saison-form session-form session-form--edit"
+                    @submit.prevent="updateSession(session, semaine.id)">
+                    <label>
+                      Nom de la session
+
+                      <input v-model="editSession.label" type="text" required>
+                    </label>
+
+                    <label>
+                      Ordre
+
+                      <input v-model="editSession.ordre" type="number" min="1" required>
+                    </label>
+
+                    <div class="saison-form__actions">
+                      <button type="submit">
+                        Enregistrer
+                      </button>
+
+                      <button type="button" class="button-secondary" @click="cancelEditSession">
+                        Annuler
+                      </button>
+                    </div>
+                  </form>
+
+                  <button type="button" class="add-sub-button" @click="startAddExercise(session.id)">
+                    + Ajouter un exercice
+                  </button>
+
+                  <form v-if="addingExerciseForSessionId === session.id" class="saison-form exercise-form"
+                    @submit.prevent="addExercise(session.id)">
+                    <label>
+                      Type
+
+                      <select v-model="newExercise.type" required>
+                        <option value="" disabled>
+                          Choisir un type
+                        </option>
+
+                        <option v-for="type in exerciseTypes" :key="type.value" :value="type.value">
+                          {{ type.label }}
+                        </option>
+                      </select>
+                    </label>
+
+                    <label>
+                      Durée en minutes
+
+                      <input v-model="newExercise.dureeMinutes" type="number" min="0" step="0.1" placeholder="Ex : 2"
+                        required>
+                    </label>
+
+                    <label>
+                      Ordre
+
+                      <input v-model="newExercise.ordre" type="number" min="1" placeholder="Ex : 1" required>
+                    </label>
+
+                    <div class="saison-form__actions">
+                      <button type="submit">
+                        Ajouter
+                      </button>
+
+                      <button type="button" class="button-secondary" @click="cancelAddExercise">
+                        Annuler
+                      </button>
+                    </div>
+                  </form>
 
                   <ul class="exercices-list">
                     <li v-for="exercice in session.exercices" :key="exercice.id" class="exercice-item">
@@ -691,13 +952,29 @@ details[open]>.session-summary::before {
   transform: rotate(90deg);
 }
 
-.summary-info {
+.summary-right {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+
   margin-left: auto;
+}
+
+.summary-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.summary-info {
+  margin: 0;
 
   color: #70808b;
 
   font-size: 0.85rem;
   font-weight: 500;
+
+  white-space: nowrap;
 }
 
 .add-button {
@@ -897,6 +1174,10 @@ details[open]>.session-summary::before {
   cursor: pointer;
 }
 
+.session-card>.add-sub-button {
+  margin-left: 14px;
+}
+
 .add-sub-button:hover {
   background-color: #e7eedf;
 }
@@ -967,6 +1248,10 @@ details[open]>.session-summary::before {
   background-color: #fafbf8;
 }
 
+.session-form--edit {
+  margin: 0 12px 12px;
+}
+
 /* =========================
    EXERCICES
 ========================= */
@@ -1008,6 +1293,12 @@ details[open]>.session-summary::before {
 
   font-size: 0.85rem;
   font-weight: 700;
+}
+
+.exercise-form {
+  margin: 0 14px 12px;
+
+  background-color: #f7f8f5;
 }
 
 /* =========================
